@@ -1,4 +1,4 @@
-package com.example.demo.remote.chunk;
+package com.example.demo.remote;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
