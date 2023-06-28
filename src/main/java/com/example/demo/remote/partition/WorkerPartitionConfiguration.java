@@ -1,17 +1,20 @@
 package com.example.demo.remote.partition;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.EnableBatchProcessing;
 import org.springframework.batch.core.configuration.annotation.StepScope;
-import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.batch.integration.config.annotation.EnableBatchIntegration;
 import org.springframework.batch.integration.partition.RemotePartitioningWorkerStepBuilderFactory;
 import org.springframework.batch.integration.partition.StepExecutionRequest;
-import org.springframework.batch.repeat.RepeatStatus;
+import org.springframework.batch.item.file.FlatFileItemReader;
+import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.expression.common.LiteralExpression;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.channel.QueueChannel;
@@ -23,11 +26,16 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
+import com.example.demo.remote.partition.constants.BatchConstants;
+import com.example.demo.remote.partition.model.Student;
+
 @Configuration
 @EnableBatchProcessing(tablePrefix = "BATCH2_")
 @EnableBatchIntegration
 @Profile("worker-partition")
 public class WorkerPartitionConfiguration {
+
+    private static final Logger logger = LoggerFactory.getLogger(WorkerPartitionConfiguration.class);
 
     private final RemotePartitioningWorkerStepBuilderFactory workerStepBuilderFactory;
 
@@ -74,29 +82,39 @@ public class WorkerPartitionConfiguration {
      */
     @Bean
     public Step workerStep(PlatformTransactionManager transactionManager) {
-        return this.workerStepBuilderFactory.get("workerStep")
+        return workerStepBuilderFactory.get("workerStep")
                 .inputChannel(inboundChannel())
-                // .outputChannel(outboundChannel())
-                .tasklet(tasklet(null, null, null), transactionManager)
+                .chunk(100, transactionManager)
+                .reader(flatFileItemReader(null, null, null))
+                // .processor(itemProcessor())
+                .writer(items -> logger.info("Received chunk size: {}", items.size()))
                 .build();
     }
 
     @Bean
     @StepScope
-    public Tasklet tasklet(@Value("#{stepExecutionContext['partition_number']}") String partition,
-            @Value("#{stepExecutionContext['first_line']}") Long firstLine,
-            @Value("#{stepExecutionContext['last_line']}") Long lastLine) {
-        return (contribution, chunkContext) -> {
+    public FlatFileItemReader<Student> flatFileItemReader(
+            @Value("#{stepExecutionContext[partition_number]}") final Long partitionNumber,
+            @Value("#{stepExecutionContext[first_line]}") final Long firstLine,
+            @Value("#{stepExecutionContext[item_count]}") final Long item_count) {
 
-            // if ("0".equals(partition)) {
-            //     throw new RuntimeException("Erro no partition_number_0");
-            // }
+        logger.info("Partition Number : {}, Reading file from line : {}, to line: {} ", partitionNumber, firstLine,
+                item_count);
 
-            System.out.println("partition_number " + partition);
-            System.out.println("first_line " + firstLine);
-            System.out.println("last_line " + lastLine);
-            return RepeatStatus.FINISHED;
-        };
+        // if(partitionNumber == 1) {
+        //     throw new RuntimeException("Partition Number : " + partitionNumber + " is not allowed");
+        // }
+
+        return new FlatFileItemReaderBuilder<Student>()
+                .name("flatFileItemReader")
+                .resource(new ClassPathResource(BatchConstants.STUDENTS_FILENAME))
+                .delimited()
+                .names("FirstName", "LastName", "Email", "Gender")
+                .targetType(Student.class)
+                .linesToSkip(firstLine.intValue())
+                .maxItemCount(item_count.intValue())
+                .build();
+
     }
 
 }
