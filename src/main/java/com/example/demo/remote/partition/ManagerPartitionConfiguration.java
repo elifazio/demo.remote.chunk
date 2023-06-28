@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.expression.common.LiteralExpression;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.integration.channel.DirectChannel;
 import org.springframework.integration.channel.QueueChannel;
 import org.springframework.integration.dsl.IntegrationFlow;
@@ -51,7 +52,8 @@ public class ManagerPartitionConfiguration {
      */
     @Bean
     public Step managerStep() {
-        return this.managerStepBuilderFactory.get(BatchConstants.LOAD_CSV_STEP_PARTITIONER).partitioner("workerStep", new CsvStepPartitioner())
+        return this.managerStepBuilderFactory.get(BatchConstants.LOAD_CSV_STEP_PARTITIONER)
+                .partitioner("workerStep", new CsvStepPartitioner())
                 .gridSize(BatchConstants.GRID_SIZE)
                 .outputChannel(outboundChannel())
                 // .inputChannel(inboundChannel())
@@ -74,6 +76,8 @@ public class ManagerPartitionConfiguration {
         KafkaProducerMessageHandler<String, StepExecutionRequest> kafkaProducerMessageHandler = new KafkaProducerMessageHandler<>(
                 kafkaTemplate);
         kafkaProducerMessageHandler.setTopicExpression(new LiteralExpression("partition-requests"));
+        kafkaProducerMessageHandler.setMessageKeyExpression(new SpelExpressionParser()
+                .parseExpression("headers['sequenceNumber']"));
         return IntegrationFlow.from(outboundChannel()).log(LoggingHandler.Level.INFO)
                 .handle(kafkaProducerMessageHandler).get();
 
@@ -94,5 +98,5 @@ public class ManagerPartitionConfiguration {
                 .channel(inboundChannel())
                 .get();
     }
-    
+
 }

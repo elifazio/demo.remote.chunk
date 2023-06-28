@@ -30,28 +30,23 @@ public class CsvStepPartitioner implements Partitioner {
         }
 
         int firstLine = 1;
-        int lastLine = gridSize;
         int partitionNumber = 0;
+        int countLines = noOfLines / gridSize;
 
-        while (firstLine < noOfLines) {
+        while (partitionNumber < gridSize) {
 
-            if (lastLine >= noOfLines) {
-                lastLine = noOfLines;
-            }
-
-            logger.info("Partition number : {}, first line is : {}, last  line is : {} ", partitionNumber, firstLine,
-                    lastLine);
+            logger.info("Partition number : {}, first line is : {}, count  line is : {} ", partitionNumber, firstLine,
+                    countLines);
 
             ExecutionContext value = new ExecutionContext();
 
             value.putLong("partition_number", partitionNumber);
             value.putLong("first_line", firstLine);
-            value.putLong("last_line", lastLine);
+            value.putLong("item_count", countLines);
 
             result.put("PartitionNumber-" + partitionNumber, value);
 
-            firstLine = firstLine + gridSize;
-            lastLine = lastLine + gridSize;
+            firstLine = firstLine + countLines;
             partitionNumber++;
         }
 
