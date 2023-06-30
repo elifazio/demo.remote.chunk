@@ -10,6 +10,7 @@ import org.springframework.batch.integration.partition.RemotePartitioningWorkerS
 import org.springframework.batch.integration.partition.StepExecutionRequest;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
+import org.springframework.batch.item.support.SynchronizedItemStreamReader;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,6 +25,7 @@ import org.springframework.integration.kafka.dsl.Kafka;
 import org.springframework.integration.kafka.outbound.KafkaProducerMessageHandler;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.example.demo.remote.partition.constants.BatchConstants;
@@ -40,6 +42,8 @@ public class WorkerPartitionConfiguration {
     private final RemotePartitioningWorkerStepBuilderFactory workerStepBuilderFactory;
 
     private final KafkaTemplate<String, StepExecutionRequest> kafkaTemplate;
+
+    private static final Integer THREAD_POOL_SIZE = 5;
 
     public WorkerPartitionConfiguration(RemotePartitioningWorkerStepBuilderFactory workerStepBuilderFactory,
             KafkaTemplate<String, StepExecutionRequest> kafkaTemplate) {
@@ -85,15 +89,16 @@ public class WorkerPartitionConfiguration {
         return workerStepBuilderFactory.get("workerStep")
                 .inputChannel(inboundChannel())
                 .chunk(100, transactionManager)
-                .reader(flatFileItemReader(null, null, null))
+                .reader(itemReader(null, null, null))
                 // .processor(itemProcessor())
                 .writer(items -> logger.info("Received chunk size: {}", items.size()))
+                .taskExecutor(this.taskExecutor())
                 .build();
     }
 
     @Bean
     @StepScope
-    public FlatFileItemReader<Student> flatFileItemReader(
+    public SynchronizedItemStreamReader<Student> itemReader(
             @Value("#{stepExecutionContext[partition_number]}") final Long partitionNumber,
             @Value("#{stepExecutionContext[first_line]}") final Long firstLine,
             @Value("#{stepExecutionContext[item_count]}") final Long item_count) {
@@ -101,20 +106,31 @@ public class WorkerPartitionConfiguration {
         logger.info("Partition Number : {}, Reading file from line : {}, to line: {} ", partitionNumber, firstLine,
                 item_count);
 
-        // if(partitionNumber == 1) {
-        //     throw new RuntimeException("Partition Number : " + partitionNumber + " is not allowed");
-        // }
-
-        return new FlatFileItemReaderBuilder<Student>()
+        FlatFileItemReader<Student> flatFileItemReader = new FlatFileItemReaderBuilder<Student>()
                 .name("flatFileItemReader")
                 .resource(new ClassPathResource(BatchConstants.STUDENTS_FILENAME))
                 .delimited()
                 .names("FirstName", "LastName", "Email", "Gender")
                 .targetType(Student.class)
+                .saveState(false)
                 .linesToSkip(firstLine.intValue())
                 .maxItemCount(item_count.intValue())
                 .build();
 
+        SynchronizedItemStreamReader<Student> synchronizedItemStreamReader = new SynchronizedItemStreamReader<>();
+        synchronizedItemStreamReader.setDelegate(flatFileItemReader);
+        return synchronizedItemStreamReader;
+    }
+
+    private ThreadPoolTaskExecutor taskExecutor() {
+        final int numeroMinimoThreads = 3;
+        final ThreadPoolTaskExecutor taskExecutor = new ThreadPoolTaskExecutor();
+        taskExecutor.setMaxPoolSize(THREAD_POOL_SIZE);
+        taskExecutor.setCorePoolSize(THREAD_POOL_SIZE < numeroMinimoThreads ? numeroMinimoThreads : THREAD_POOL_SIZE);
+        taskExecutor.setQueueCapacity(THREAD_POOL_SIZE);
+        taskExecutor.setThreadNamePrefix("WorkerStep-Thread-");
+        taskExecutor.afterPropertiesSet();
+        return taskExecutor;
     }
 
 }
