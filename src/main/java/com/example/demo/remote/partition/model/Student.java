@@ -3,7 +3,6 @@ package com.example.demo.remote.partition.model;
 import java.util.Objects;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 
@@ -26,7 +25,6 @@ public class Student {
 
     @Column(name = "Gender")
     private String gender;
-
 
     public Long getId() {
         return id;

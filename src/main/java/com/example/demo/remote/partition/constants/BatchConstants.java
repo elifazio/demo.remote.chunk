@@ -7,7 +7,8 @@ public class BatchConstants {
     public static final String SLAVE_THREAD = " Slave_Thread_";
     public static final int CONCURRENCY_LIMIT = 8;
     public static final int CHUNK_SIZE = 100;
-    public static final int GRID_SIZE = 3;
-    public static final String STUDENTS_FILENAME = "students.csv";
+    public static final int GRID_SIZE = 20;
+    public static final String FILENAME = "students.csv";
     public static final String LOAD_CSV_STEP = "loadCsvStep";
+    public static final String REMOTO_FILE_PATH = "//home//dusrxcabr//cabr//processar//";
 }
