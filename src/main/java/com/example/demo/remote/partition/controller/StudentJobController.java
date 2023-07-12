@@ -2,7 +2,6 @@ package com.example.demo.remote.partition.controller;
 
 import java.util.UUID;
 
-import org.hibernate.id.GUIDGenerator;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.batch.core.JobParameters;

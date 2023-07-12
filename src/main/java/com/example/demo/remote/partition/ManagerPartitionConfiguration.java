@@ -41,10 +41,13 @@ public class ManagerPartitionConfiguration {
 
     private final KafkaTemplate<String, StepExecutionRequest> kafkaTemplate;
 
+    private final CsvStepPartitioner csvStepPartitioner;
+
     public ManagerPartitionConfiguration(RemotePartitioningManagerStepBuilderFactory managerStepBuilderFactory,
-            KafkaTemplate<String, StepExecutionRequest> kafkaTemplate) {
+            KafkaTemplate<String, StepExecutionRequest> kafkaTemplate,CsvStepPartitioner csvStepPartitioner) {
         this.managerStepBuilderFactory = managerStepBuilderFactory;
         this.kafkaTemplate = kafkaTemplate;
+        this.csvStepPartitioner = csvStepPartitioner;
     }
 
     /*
@@ -53,7 +56,7 @@ public class ManagerPartitionConfiguration {
     @Bean
     public Step managerStep() {
         return this.managerStepBuilderFactory.get(BatchConstants.LOAD_CSV_STEP_PARTITIONER)
-                .partitioner("workerStep", new CsvStepPartitioner())
+                .partitioner("workerStep", csvStepPartitioner)
                 .gridSize(BatchConstants.GRID_SIZE)
                 .outputChannel(outboundChannel())
                 // .inputChannel(inboundChannel())
