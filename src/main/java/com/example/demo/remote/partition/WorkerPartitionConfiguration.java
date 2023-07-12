@@ -9,6 +9,7 @@ import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.integration.config.annotation.EnableBatchIntegration;
 import org.springframework.batch.integration.partition.RemotePartitioningWorkerStepBuilderFactory;
 import org.springframework.batch.integration.partition.StepExecutionRequest;
+import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.builder.FlatFileItemReaderBuilder;
 import org.springframework.batch.item.support.SynchronizedItemStreamReader;
@@ -86,12 +87,15 @@ public class WorkerPartitionConfiguration {
      * Configure the worker step
      */
     @Bean
-    public Step workerStep(final PlatformTransactionManager transactionManager) {
+    public Step workerStep(final PlatformTransactionManager transactionManager, final ItemReader<Student> itemReader) {
         return workerStepBuilderFactory.get("workerStep")
                 .inputChannel(inboundChannel())
-                .chunk(100, transactionManager)
-                .reader(itemReader(null, null, null, null))
-                // .processor(itemProcessor())
+                .<Student, Student>chunk(100, transactionManager)
+                .reader(itemReader)
+                .processor(item -> {
+                    logger.info("Processing item: {}", item);
+                    return item;
+                })
                 .writer(items -> logger.info("Received chunk size: {}", items.size()))
                 .taskExecutor(this.taskExecutor())
                 .build();
